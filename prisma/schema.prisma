@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model TemplateRecord {
+  entityId       String                  @id
+  name           String
+  currentVersion Int
+  createdAt      DateTime
+  updatedAt      DateTime
+  versions       TemplateVersionRecord[]
+}
+
+model TemplateVersionRecord {
+  id        Int      @id @default(autoincrement())
+  entityId  String
+  name      String
+  payload   String
+  version   Int
+  createdAt DateTime
+  updatedAt DateTime
+  template  TemplateRecord @relation(fields: [entityId], references: [entityId], onDelete: Cascade, onUpdate: Cascade)
+  jobs      GenerateJobRecord[] @relation("GenerateJobTemplateVersion")
+
+  @@index([entityId])
+  @@unique([entityId, version])
+}
+
+model DataSetRecord {
+  entityId       String                 @id
+  name           String
+  currentVersion Int
+  createdAt      DateTime
+  updatedAt      DateTime
+  versions       DataSetVersionRecord[]
+}
+
+model DataSetVersionRecord {
+  id        Int      @id @default(autoincrement())
+  entityId  String
+  name      String
+  payload   String
+  version   Int
+  createdAt DateTime
+  updatedAt DateTime
+  dataSet   DataSetRecord @relation(fields: [entityId], references: [entityId], onDelete: Cascade, onUpdate: Cascade)
+  jobs      GenerateJobRecord[] @relation("GenerateJobDataSetVersion")
+
+  @@index([entityId])
+  @@unique([entityId, version])
+}
+
+model GenerateJobRecord {
+  entityId        String   @id
+  templateId      String
+  templateVersion Int
+  dataSetId       String
+  dataSetVersion  Int
+  mode            String
+  output          String
+  payload         String
+  version         Int
+  createdAt       DateTime
+  updatedAt       DateTime
+  template        TemplateVersionRecord @relation("GenerateJobTemplateVersion", fields: [templateId, templateVersion], references: [entityId, version], onDelete: Restrict, onUpdate: Cascade)
+  dataSet         DataSetVersionRecord @relation("GenerateJobDataSetVersion", fields: [dataSetId, dataSetVersion], references: [entityId, version], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([templateId])
+  @@index([dataSetId])
+  @@index([createdAt])
+}
