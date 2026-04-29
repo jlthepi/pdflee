@@ -10,6 +10,12 @@ import {
   type TemplateStylePatch,
 } from "@/lib/domain/template-style";
 import {
+  createTemplateBoxElement,
+  createTemplateImageElement,
+  createTemplateLineElement,
+  createTemplateTextElement,
+} from "@/lib/domain/template-elements";
+import {
   alignElementsToPage,
   alignElementToPage,
   clampElementPosition,
@@ -24,7 +30,6 @@ import {
   moveItemInArray,
   normalizeTemplateDocument,
 } from "@/lib/domain/template-document";
-import { DEFAULT_TEMPLATE_LINE_HEIGHT } from "@/lib/domain/template-text";
 import type {
   PageSize,
   TemplateDraft,
@@ -33,32 +38,6 @@ import type {
 } from "@/types/domain";
 
 const TEMPLATE_HISTORY_LIMIT = 100;
-
-const createTextElement = ({
-  content,
-  x = 50,
-  y,
-}: {
-  content: string;
-  x?: number;
-  y: number;
-}): TemplateElement => {
-  return {
-    id: crypto.randomUUID(),
-    type: "text",
-    name: content,
-    content,
-    x,
-    y,
-    width: 240,
-    height: 44,
-    fontSize: 16,
-    color: "#000000",
-    lineHeight: DEFAULT_TEMPLATE_LINE_HEIGHT,
-    hidden: false,
-    locked: false,
-  };
-};
 
 type ElementInsertPosition = {
   x: number;
@@ -176,6 +155,16 @@ type TemplateStore = TemplateHistoryState & {
     content?: string,
     position?: ElementInsertPosition,
   ) => string;
+  addBoxElement: (pageId: string, position?: ElementInsertPosition) => string;
+  addLineElement: (pageId: string, position?: ElementInsertPosition) => string;
+  addImageElement: (
+    pageId: string,
+    options?: {
+      src?: string;
+      alt?: string;
+      position?: ElementInsertPosition;
+    },
+  ) => string;
 };
 
 const cloneTemplate = <Value>(value: Value): Value => {
@@ -282,6 +271,76 @@ const mapUnlockedElements = ({
   return page.elements.filter(
     (element) => selectedIds.has(element.id) && !element.locked,
   );
+};
+
+const insertElementOnPage = ({
+  state,
+  pageId,
+  element,
+}: {
+  state: TemplateStore;
+  pageId: string;
+  element: TemplateElement;
+}) => {
+  const pageSize = resolvePageSize(state.template, pageId);
+  const nextPosition = snapElementPosition({
+    x: element.x,
+    y: element.y,
+    elementBox: getElementBox(element),
+    pageSize,
+  });
+  const newElement = normalizeElementForPage({
+    element: {
+      ...element,
+      x: nextPosition.x,
+      y: nextPosition.y,
+    },
+    pageSize,
+  });
+
+  return {
+    newElement,
+    nextTemplate: {
+      ...state.template,
+      document: {
+        ...state.template.document,
+        pages: state.template.document.pages.map((page) =>
+          page.id === pageId
+            ? { ...page, elements: [...page.elements, newElement] }
+            : page,
+        ),
+      },
+    },
+  };
+};
+
+const applyTemplateStylePatch = (
+  element: TemplateElement,
+  patch: TemplateStylePatch,
+): TemplateElement => {
+  const geometryPatch = {
+    ...(typeof patch.width === "number" ? { width: patch.width } : {}),
+    ...(typeof patch.height === "number" ? { height: patch.height } : {}),
+  };
+
+  if (element.type !== "text") {
+    return {
+      ...element,
+      ...geometryPatch,
+    };
+  }
+
+  return {
+    ...element,
+    ...geometryPatch,
+    ...(patch.fontFamily !== undefined ? { fontFamily: patch.fontFamily } : {}),
+    ...(typeof patch.fontSize === "number" ? { fontSize: patch.fontSize } : {}),
+    ...(patch.fontWeight !== undefined ? { fontWeight: patch.fontWeight } : {}),
+    ...(typeof patch.lineHeight === "number"
+      ? { lineHeight: patch.lineHeight }
+      : {}),
+    ...(patch.color !== undefined ? { color: patch.color } : {}),
+  };
 };
 
 const moveSelectedLayers = ({
@@ -1010,15 +1069,14 @@ export const useTemplateStore = create<TemplateStore>((set, get) => ({
         return state;
       }
 
+      const styleClipboard = state.styleClipboard;
+
       return commitTemplateUpdate({
         state,
         nextTemplate: {
           ...mapPageElements(state.template, pageId, (element) =>
             ids.includes(element.id)
-              ? {
-                  ...element,
-                  ...state.styleClipboard,
-                }
+              ? applyTemplateStylePatch(element, styleClipboard)
               : element,
           ),
         },
@@ -1030,7 +1088,7 @@ export const useTemplateStore = create<TemplateStore>((set, get) => ({
         state,
         nextTemplate: {
           ...mapPageElements(state.template, pageId, (element) =>
-            ids.includes(element.id)
+            ids.includes(element.id) && element.type === "text"
               ? {
                   ...element,
                   ...getTemplateStylePreset(preset),
@@ -1041,50 +1099,29 @@ export const useTemplateStore = create<TemplateStore>((set, get) => ({
       }),
     ),
   addTextElement: (pageId, position) => {
-    const pageSize = resolvePageSize(get().template, pageId);
-    const baseElement = createTextElement({
+    const baseElement = createTemplateTextElement({
       content: "New text",
       x: position?.x ?? 50,
       y: position?.y ?? 50,
     });
-    const nextPosition = snapElementPosition({
-      x: position?.x ?? baseElement.x,
-      y: position?.y ?? baseElement.y,
-      elementBox: getElementBox(baseElement),
-      pageSize,
-    });
-    const newElement = normalizeElementForPage({
-      element: {
-        ...baseElement,
-        x: nextPosition.x,
-        y: nextPosition.y,
-      },
-      pageSize,
-    });
+    let newElementId = baseElement.id;
 
-    set((state) =>
-      commitTemplateUpdate({
+    set((state) => {
+      const { newElement, nextTemplate } = insertElementOnPage({
         state,
-        nextTemplate: {
-          ...state.template,
-          document: {
-            ...state.template.document,
-            pages: state.template.document.pages.map((page) =>
-              page.id === pageId
-                ? { ...page, elements: [...page.elements, newElement] }
-                : page,
-            ),
-          },
-        },
-      }),
-    );
+        pageId,
+        element: baseElement,
+      });
+      newElementId = newElement.id;
 
-    return newElement.id;
+      return commitTemplateUpdate({ state, nextTemplate });
+    });
+
+    return newElementId;
   },
   addPlaceholderElement: (pageId, content = "Hello {{name}}", position) => {
-    const pageSize = resolvePageSize(get().template, pageId);
     const baseElement: TemplateElement = {
-      ...createTextElement({
+      ...createTemplateTextElement({
         content,
         x: position?.x ?? 50,
         y: position?.y ?? 110,
@@ -1092,38 +1129,81 @@ export const useTemplateStore = create<TemplateStore>((set, get) => ({
       width: 260,
       fontWeight: "medium",
     };
-    const nextPosition = snapElementPosition({
-      x: position?.x ?? baseElement.x,
-      y: position?.y ?? baseElement.y,
-      elementBox: getElementBox(baseElement),
-      pageSize,
-    });
-    const newElement = normalizeElementForPage({
-      element: {
-        ...baseElement,
-        x: nextPosition.x,
-        y: nextPosition.y,
-      },
-      pageSize,
-    });
+    let newElementId = baseElement.id;
 
-    set((state) =>
-      commitTemplateUpdate({
+    set((state) => {
+      const { newElement, nextTemplate } = insertElementOnPage({
         state,
-        nextTemplate: {
-          ...state.template,
-          document: {
-            ...state.template.document,
-            pages: state.template.document.pages.map((page) =>
-              page.id === pageId
-                ? { ...page, elements: [...page.elements, newElement] }
-                : page,
-            ),
-          },
-        },
-      }),
-    );
+        pageId,
+        element: baseElement,
+      });
+      newElementId = newElement.id;
 
-    return newElement.id;
+      return commitTemplateUpdate({ state, nextTemplate });
+    });
+
+    return newElementId;
+  },
+  addBoxElement: (pageId, position) => {
+    const baseElement = createTemplateBoxElement({
+      x: position?.x ?? 50,
+      y: position?.y ?? 50,
+    });
+    let newElementId = baseElement.id;
+
+    set((state) => {
+      const { newElement, nextTemplate } = insertElementOnPage({
+        state,
+        pageId,
+        element: baseElement,
+      });
+      newElementId = newElement.id;
+
+      return commitTemplateUpdate({ state, nextTemplate });
+    });
+
+    return newElementId;
+  },
+  addLineElement: (pageId, position) => {
+    const baseElement = createTemplateLineElement({
+      x: position?.x ?? 50,
+      y: position?.y ?? 50,
+    });
+    let newElementId = baseElement.id;
+
+    set((state) => {
+      const { newElement, nextTemplate } = insertElementOnPage({
+        state,
+        pageId,
+        element: baseElement,
+      });
+      newElementId = newElement.id;
+
+      return commitTemplateUpdate({ state, nextTemplate });
+    });
+
+    return newElementId;
+  },
+  addImageElement: (pageId, options) => {
+    const baseElement = createTemplateImageElement({
+      src: options?.src,
+      alt: options?.alt,
+      x: options?.position?.x ?? 50,
+      y: options?.position?.y ?? 50,
+    });
+    let newElementId = baseElement.id;
+
+    set((state) => {
+      const { newElement, nextTemplate } = insertElementOnPage({
+        state,
+        pageId,
+        element: baseElement,
+      });
+      newElementId = newElement.id;
+
+      return commitTemplateUpdate({ state, nextTemplate });
+    });
+
+    return newElementId;
   },
 }));
