@@ -12,7 +12,6 @@ import GenerateStatusChecklist, {
 } from "@/components/generate/GenerateStatusChecklist";
 import { Layout } from "@/components/layout/Layout";
 import TemplateDataMappingPanel from "@/components/shared/TemplateDataMappingPanel";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -420,36 +419,45 @@ const GeneratePage = () => {
 
   return (
     <Layout>
-      <div className="flex flex-col gap-8 px-1 py-5">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Generate PDFs
-            </h1>
-            <p className="max-w-3xl text-sm text-muted-foreground">
-              Run generation from the current template and dataset, verify the
-              effective rows before exporting, and reuse prior job setups when
-              you need to repeat a batch.
-            </p>
+      <div className="flex flex-col gap-10 px-1 py-5">
+        <div className="border-b border-stone-900/12 pb-6 dark:border-white/10">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="space-y-3">
+              <div className="text-[11px] uppercase tracking-[0.28em] text-stone-500 dark:text-stone-400">
+                Generate
+              </div>
+              <h1 className="max-w-4xl text-[clamp(2.8rem,6vw,4.8rem)] font-semibold leading-[0.95] tracking-[-0.05em] text-stone-950 dark:text-stone-50">
+                Generate PDFs.
+              </h1>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                Verify row scope, review mapping coverage, and export the
+                current template and dataset without leaving the work surface.
+              </p>
+            </div>
+
+            <div className="self-end border-t border-stone-900/12 pt-4 text-sm dark:border-white/10 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
+              <div className="text-[11px] uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
+                Current Drafts
+              </div>
+              <div className="mt-2 font-medium tracking-tight">
+                {currentTemplateName}
+              </div>
+              <div className="mt-1 text-muted-foreground">
+                paired with {currentDataSetName}
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-            <span className="rounded-full border px-2 py-1">
-              Template v{template.currentVersion ?? 0}
-            </span>
-            <span className="rounded-full border px-2 py-1">
-              Data v{dataSet.currentVersion ?? 0}
-            </span>
-            <span className="rounded-full border px-2 py-1">
-              {readiness.selectedRowCount} row(s) in run
-            </span>
-            <span className="rounded-full border px-2 py-1">
-              {readiness.matchedColumns.length} mapped columns
-            </span>
+          <div className="mt-6 flex flex-wrap gap-x-4 gap-y-1 text-[11px] uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
+            <span>Template v{template.currentVersion ?? 0}</span>
+            <span>Data v{dataSet.currentVersion ?? 0}</span>
+            <span>{readiness.selectedRowCount} rows in run</span>
+            <span>{readiness.matchedColumns.length} mapped columns</span>
           </div>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-3">
+        <div className="border-y border-stone-900/12 dark:border-white/10">
+          <div className="grid lg:grid-cols-3">
           {modeOptions.map((option) => {
             const isActive = mode === option.value;
             const countLabel =
@@ -464,49 +472,49 @@ const GeneratePage = () => {
                 key={option.value}
                 type="button"
                 onClick={() => setMode(option.value)}
-                className={`rounded-2xl border px-4 py-4 text-left transition ${
+                className={`border-b border-stone-900/12 px-4 py-4 text-left transition last:border-b-0 dark:border-white/10 lg:border-b-0 lg:border-r lg:last:border-r-0 ${
                   isActive
-                    ? "border-stone-900 bg-stone-900 text-stone-50 dark:border-stone-100 dark:bg-stone-100 dark:text-stone-950"
-                    : "border-stone-900/10 bg-background/70 hover:border-stone-900/20 dark:border-white/10 dark:hover:border-white/20"
+                    ? "border-l-2 border-l-stone-900 bg-stone-900/[0.03] text-stone-950 dark:border-l-stone-50 dark:bg-white/[0.03] dark:text-stone-50"
+                    : "text-muted-foreground hover:text-stone-950 dark:hover:text-stone-50"
                 }`}
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm font-medium">{option.label}</div>
-                  <Badge
-                    variant="outline"
-                    className="border-current/20 text-current"
-                  >
-                    {countLabel}
-                  </Badge>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
+                  {countLabel}
                 </div>
-                <p
-                  className={`mt-3 text-sm ${
-                    isActive
-                      ? "text-stone-50/80 dark:text-stone-950/80"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  {option.description}
-                </p>
+                <div className="mt-2 text-base font-semibold tracking-tight">
+                  {option.label}
+                </div>
               </button>
             );
           })}
+          </div>
+          <p className="px-4 py-3 text-sm text-muted-foreground">
+            {modeOptions.find((option) => option.value === mode)?.description}
+          </p>
         </div>
 
-        {mode === "selection" ? (
-          <GenerateSelectionTable
-            columns={dataSet.table.columns}
-            rows={dataSet.table.rows}
-            matchedColumns={readiness.matchedColumns}
-            selectedRowIndexes={selectedRowIndexes}
-            toggleRowSelection={toggleRowSelection}
-            selectAllRows={selectAllRows}
-            clearSelectedRows={clearSelectedRows}
-          />
-        ) : null}
-
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-8">
+            {mode === "selection" ? (
+              <GenerateSelectionTable
+                columns={dataSet.table.columns}
+                rows={dataSet.table.rows}
+                matchedColumns={readiness.matchedColumns}
+                selectedRowIndexes={selectedRowIndexes}
+                toggleRowSelection={toggleRowSelection}
+                selectAllRows={selectAllRows}
+                clearSelectedRows={clearSelectedRows}
+              />
+            ) : null}
+
+            <TemplateDataMappingPanel
+              document={template.document}
+              table={dataSet.table}
+              title="Template to Data Mapping"
+              description="Check coverage before saving versions and starting the job."
+              variant="minimal"
+            />
+
             <GenerateSamplePreview
               mode={mode}
               rowCount={readiness.selectedRowCount}
@@ -514,55 +522,22 @@ const GeneratePage = () => {
               sampleRowIndex={sampleRowIndex}
               fields={sampleFields}
             />
-
-            <TemplateDataMappingPanel
-              document={template.document}
-              table={dataSet.table}
-              title="Template to Data Mapping"
-              description="Check coverage before saving versions and starting the job."
-            />
           </div>
 
-          <div className="space-y-8">
+          <div className="space-y-8 xl:border-l xl:border-stone-900/12 xl:pl-6 xl:dark:border-white/10">
             <GenerateStatusChecklist items={checklistItems} />
-
-            <div className="rounded-2xl border border-stone-900/10 bg-background/70 px-4 py-4 text-sm dark:border-white/10">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="font-medium">Current Drafts</div>
-                  <div className="mt-1 text-muted-foreground">
-                    {currentTemplateName} with {currentDataSetName}
-                  </div>
-                </div>
-                <Badge
-                  variant="outline"
-                  className={
-                    readiness.status === "ready"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : readiness.status === "warning"
-                        ? "border-amber-200 bg-amber-50 text-amber-700"
-                        : "border-rose-200 bg-rose-50 text-rose-700"
-                  }
-                >
-                  {readiness.status === "ready"
-                    ? "Ready"
-                    : readiness.status === "warning"
-                      ? "Ready with Warnings"
-                      : "Blocked"}
-                </Badge>
-              </div>
-              <p className="mt-3 text-muted-foreground">
-                Only changed template or dataset drafts create a new version at
-                generate time. Unchanged drafts reuse the current saved version.
-              </p>
-            </div>
           </div>
         </div>
 
-        <div className="sticky bottom-4 z-10 flex flex-col gap-3 rounded-2xl border border-stone-900/10 bg-background/95 px-4 py-4 backdrop-blur dark:border-white/10">
+        <div className="sticky bottom-0 z-10 border-t border-stone-900/12 bg-background/95 py-3 backdrop-blur dark:border-white/10">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
-              <div className="text-sm font-medium">Run this generation job</div>
+              <div className="text-[11px] uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
+                Action
+              </div>
+              <div className="text-sm font-medium tracking-tight">
+                Run this generation job
+              </div>
               <p className="text-sm text-muted-foreground">
                 {readiness.blockers.length > 0
                   ? readiness.blockers[0]
@@ -574,6 +549,7 @@ const GeneratePage = () => {
               type="button"
               onClick={handleGenerate}
               disabled={isGenerating || readiness.blockers.length > 0}
+              className="rounded-none"
             >
               {isGenerating ? <Spinner className="size-4" /> : null}
               {isGenerating

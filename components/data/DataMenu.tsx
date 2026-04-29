@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Download, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
 
+import { buildDataSetDraftFingerprint } from "@/lib/domain/draft-fingerprint";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -41,12 +42,25 @@ const toDraft = (dataSet: PersistedDataSet) => ({
 });
 
 const DataMenu = () => {
-  const { dataSet, setDataSet } = useDataStore();
+  const { dataSet, persistedFingerprint, setDataSet } = useDataStore();
   const { setDataUploadOpen } = useDataUiStore();
   const [dataSets, setDataSets] = useState<DataSetRecord[]>([]);
   const selectedDataSetId = dataSets.some((record) => record.id === dataSet.id)
     ? dataSet.id
     : undefined;
+  const currentFingerprint = buildDataSetDraftFingerprint({
+    name: dataSet.name,
+    description: dataSet.description,
+    table: dataSet.table,
+  });
+  const isDirty =
+    persistedFingerprint !== null && persistedFingerprint !== currentFingerprint;
+  const statusLabel =
+    persistedFingerprint === null
+      ? "Local draft"
+      : isDirty
+        ? "Unsaved changes"
+        : `Saved version ${dataSet.currentVersion ?? 1}`;
 
   const fetchDataSets = useCallback(async () => {
     try {
@@ -128,12 +142,17 @@ const DataMenu = () => {
   };
 
   return (
-    <div className="border-b border-stone-900/12 pb-4 dark:border-white/10">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] uppercase tracking-[0.2em] text-stone-500 dark:text-stone-400">
+          <span>Utility rail</span>
+          <span>{statusLabel}</span>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           <Button
             type="button"
-            variant="outline"
+            variant="default"
             size="sm"
             onClick={() => setDataUploadOpen(true)}
           >
@@ -158,34 +177,34 @@ const DataMenu = () => {
             <Download />
             Export Draft
           </Button>
-        </div>
 
-        <Select
-          value={selectedDataSetId}
-          onValueChange={(value) => {
-            void handleLoad(value);
-          }}
-          disabled={!dataSets.length}
-        >
-          <SelectTrigger
-            size="sm"
-            className="min-w-52 justify-between bg-white/70 dark:bg-input/30"
-            aria-label="Load saved data set"
+          <Select
+            value={selectedDataSetId}
+            onValueChange={(value) => {
+              void handleLoad(value);
+            }}
+            disabled={!dataSets.length}
           >
-            <SelectValue
-              placeholder={
-                dataSets.length ? "Load saved data set" : "No saved data sets"
-              }
-            />
-          </SelectTrigger>
-          <SelectContent align="end">
-            {dataSets.map((record) => (
-              <SelectItem key={record.id} value={record.id}>
-                {record.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            <SelectTrigger
+              size="sm"
+              className="min-w-56 justify-between border-stone-900/12 bg-white/40 dark:border-white/10 dark:bg-white/5"
+              aria-label="Load saved data set"
+            >
+              <SelectValue
+                placeholder={
+                  dataSets.length ? "Load saved data set" : "No saved data sets"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {dataSets.map((record) => (
+                <SelectItem key={record.id} value={record.id}>
+                  {record.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
   );

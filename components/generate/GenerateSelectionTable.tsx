@@ -39,7 +39,12 @@ const GenerateSelectionTable = ({
     <div className="border-t border-stone-900/12 pt-4 dark:border-white/10">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h2 className="text-sm font-semibold">Row Selection</h2>
+          <div className="text-[11px] uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
+            Selection
+          </div>
+          <h2 className="text-sm font-semibold tracking-tight">
+            Row Selection
+          </h2>
           <p className="text-sm text-muted-foreground">
             Choose the exact records to include in this run. Click any row to
             toggle it.
@@ -50,6 +55,7 @@ const GenerateSelectionTable = ({
             type="button"
             size="sm"
             variant="outline"
+            className="rounded-none"
             onClick={selectAllRows}
             disabled={rows.length === 0 || allRowsSelected}
           >
@@ -59,6 +65,7 @@ const GenerateSelectionTable = ({
             type="button"
             size="sm"
             variant="ghost"
+            className="rounded-none"
             onClick={clearSelectedRows}
             disabled={selectedRowIndexes.length === 0}
           >
@@ -67,28 +74,22 @@ const GenerateSelectionTable = ({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-        <span className="rounded-full border px-2 py-1">
-          {selectedRowIndexes.length} selected
-        </span>
-        <span className="rounded-full border px-2 py-1">
-          {rows.length} total rows
-        </span>
-        <span className="rounded-full border px-2 py-1">
-          {matchedColumns.length} mapped columns
-        </span>
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-y border-stone-900/12 py-3 text-xs uppercase tracking-[0.18em] text-stone-500 dark:border-white/10 dark:text-stone-400">
+        <span>{selectedRowIndexes.length} selected</span>
+        <span>{rows.length} total rows</span>
+        <span>{matchedColumns.length} mapped columns</span>
       </div>
 
       {rows.length === 0 ? (
-        <div className="mt-4 rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground">
+        <div className="mt-4 border-y border-dashed border-stone-900/12 px-0 py-4 text-sm text-muted-foreground dark:border-white/10">
           No rows available yet. Add or import data on the Data page first.
         </div>
       ) : (
-        <div className="mt-4 max-h-[420px] overflow-auto rounded-2xl border border-stone-900/10 dark:border-white/10">
+        <div className="mt-4 max-h-[420px] overflow-auto border-y border-stone-900/12 dark:border-white/10">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="sticky top-0 z-10 w-16 bg-background">
+                <TableHead className="sticky top-0 z-10 w-16 bg-background/95">
                   <div className="flex items-center gap-2">
                     <Checkbox
                       checked={allRowsSelected}
@@ -108,7 +109,7 @@ const GenerateSelectionTable = ({
                 {columns.map((column, columnIndex) => (
                   <TableHead
                     key={`${column}-${columnIndex}`}
-                    className="sticky top-0 z-10 bg-background"
+                    className="sticky top-0 z-10 bg-background/95"
                   >
                     <div className="space-y-2">
                       <div>{column}</div>
@@ -116,8 +117,8 @@ const GenerateSelectionTable = ({
                         variant="outline"
                         className={
                           matchedColumns.includes(column)
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                            : "border-border bg-muted/50 text-muted-foreground"
+                            ? "h-6 rounded-none border-emerald-300 bg-transparent px-2 uppercase tracking-[0.18em] text-emerald-700"
+                            : "h-6 rounded-none border-border bg-transparent px-2 uppercase tracking-[0.18em] text-muted-foreground"
                         }
                       >
                         {matchedColumns.includes(column) ? "Mapped" : "Unused"}

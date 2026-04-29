@@ -1,7 +1,6 @@
 // components/data/DataPreview.tsx
 import DataTable from "@/components/data/DataTable";
 import TemplateDataMappingPanel from "@/components/shared/TemplateDataMappingPanel";
-import { Container } from "@/components/ui/container";
 import { getDataTableDiagnostics } from "@/lib/domain/data-table";
 import { useDataStore } from "@/stores/useDataStore";
 import { useTemplateStore } from "@/stores/useTemplateStore";
@@ -14,48 +13,39 @@ const DataPreview = () => {
   });
 
   return (
-    <Container>
-      <div className="mb-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div>
-          <h1 className="text-lg font-semibold">{dataSet.name}</h1>
-          <p className="text-sm text-muted-foreground">{dataSet.description}</p>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-            <span className="rounded-full border px-2 py-1">
-              {dataSet.table.columns.length} columns
-            </span>
-            <span className="rounded-full border px-2 py-1">
-              {dataSet.table.rows.length} rows
-            </span>
-            <span className="rounded-full border px-2 py-1">
-              {Math.round(diagnostics.completionRate * 100)}% filled
-            </span>
-            {diagnostics.duplicateColumnNames.length > 0 && (
-              <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
-                {diagnostics.duplicateColumnNames.length} duplicate headers
-              </span>
-            )}
-            {diagnostics.blankColumnIndexes.length > 0 && (
-              <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
-                {diagnostics.blankColumnIndexes.length} empty headers
-              </span>
-            )}
-            {diagnostics.rowsWithMissingValues > 0 && (
-              <span className="rounded-full border px-2 py-1">
-                {diagnostics.rowsWithMissingValues} incomplete rows
-              </span>
-            )}
-          </div>
-        </div>
-        <TemplateDataMappingPanel
-          document={template.document}
-          table={dataSet.table}
-          title="Live Mapping"
-          description="See how the current dataset lines up with template placeholders before generating."
-          compact
-        />
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-stone-900/12 pb-5 text-[11px] uppercase tracking-[0.18em] text-stone-500 dark:border-white/10 dark:text-stone-400">
+        <span>Table workspace</span>
+        <span>{Math.round(diagnostics.completionRate * 100)}% filled</span>
+        {diagnostics.blankColumnIndexes.length > 0 ? (
+          <span>{diagnostics.blankColumnIndexes.length} empty headers</span>
+        ) : null}
+        {diagnostics.duplicateColumnNames.length > 0 ? (
+          <span>{diagnostics.duplicateColumnNames.length} duplicate headers</span>
+        ) : null}
+        {diagnostics.rowsWithMissingValues > 0 ? (
+          <span>{diagnostics.rowsWithMissingValues} incomplete rows</span>
+        ) : (
+          <span>Rows complete</span>
+        )}
       </div>
-      <DataTable />
-    </Container>
+
+      <div className="grid min-h-0 flex-1 gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-h-0">
+          <DataTable />
+        </div>
+        <aside className="animate-in fade-in-0 slide-in-from-bottom-2 duration-300 border-t border-stone-900/12 pt-6 xl:border-t-0 xl:border-l xl:pl-8 xl:pt-0 dark:border-white/10">
+          <TemplateDataMappingPanel
+            document={template.document}
+            table={dataSet.table}
+            title="Live Mapping"
+            description="A compact read on how the current sheet lines up with template placeholders."
+            className="border-t-0 pt-0"
+            compact
+          />
+        </aside>
+      </div>
+    </div>
   );
 };
 

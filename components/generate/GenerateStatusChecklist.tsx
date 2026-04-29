@@ -5,7 +5,6 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 export type GenerateChecklistItem = {
@@ -35,24 +34,33 @@ type GenerateStatusChecklistProps = {
 
 const GenerateStatusChecklist = ({ items }: GenerateStatusChecklistProps) => {
   return (
-    <Card className="border-0 bg-transparent py-0 ring-0">
-      <CardHeader className="px-0">
-        <CardTitle className="text-sm font-semibold">Run Checklist</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 px-0">
+    <section className="border-t border-stone-900/12 pt-4 dark:border-white/10">
+      <div className="space-y-1">
+        <div className="text-[11px] uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
+          Generate
+        </div>
+        <h2 className="text-sm font-semibold tracking-tight">Run Checklist</h2>
+      </div>
+
+      <div className="mt-4 border-b border-stone-900/12 dark:border-white/10">
         {items.map((item) => (
           <div
             key={item.id}
-            className="flex flex-col gap-3 rounded-2xl border border-stone-900/10 bg-background/70 px-4 py-4 dark:border-white/10"
+            className="grid gap-3 border-t border-stone-900/12 py-4 first:border-t-0 dark:border-white/10"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="space-y-1">
-                <div className="text-sm font-medium">{item.label}</div>
+                <div className="text-sm font-medium tracking-tight">
+                  {item.label}
+                </div>
                 <p className="text-sm text-muted-foreground">{item.detail}</p>
               </div>
               <Badge
                 variant="outline"
-                className={cn("shrink-0", toneClassNameByStatus[item.status])}
+                className={cn(
+                  "h-6 shrink-0 rounded-none bg-transparent px-2 uppercase tracking-[0.18em]",
+                  toneClassNameByStatus[item.status],
+                )}
               >
                 {labelByStatus[item.status]}
               </Badge>
@@ -60,15 +68,20 @@ const GenerateStatusChecklist = ({ items }: GenerateStatusChecklistProps) => {
 
             {item.actionHref && item.actionLabel ? (
               <div>
-                <Button variant="outline" size="sm" asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-none"
+                  asChild
+                >
                   <Link href={item.actionHref}>{item.actionLabel}</Link>
                 </Button>
               </div>
             ) : null}
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 };
 

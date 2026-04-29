@@ -4,7 +4,6 @@
 import type { GenerateMode } from "@/types/domain";
 
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type SampleField = {
@@ -40,57 +39,66 @@ const GenerateSamplePreview = ({
   fields,
 }: GenerateSamplePreviewProps) => {
   return (
-    <Card className="border-0 bg-transparent py-0 ring-0">
-      <CardHeader className="px-0">
-        <CardTitle className="text-sm font-semibold">Run Context</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4 px-0">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-stone-900/10 bg-background/70 px-4 py-4 dark:border-white/10">
-            <div className="text-xs text-muted-foreground">Mode</div>
-            <div className="mt-1 text-sm font-medium">
-              {modeLabelByValue[mode]}
-            </div>
-          </div>
-          <div className="rounded-2xl border border-stone-900/10 bg-background/70 px-4 py-4 dark:border-white/10">
-            <div className="text-xs text-muted-foreground">Rows</div>
-            <div className="mt-1 text-sm font-medium">{rowCount}</div>
-          </div>
-          <div className="rounded-2xl border border-stone-900/10 bg-background/70 px-4 py-4 dark:border-white/10">
-            <div className="text-xs text-muted-foreground">Download</div>
-            <div className="mt-1 text-sm font-medium uppercase">
-              {outputKind}
-            </div>
-          </div>
+    <section className="border-t border-stone-900/12 pt-4 dark:border-white/10">
+      <div className="space-y-1">
+        <div className="text-[11px] uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
+          Preview
         </div>
+        <h2 className="text-sm font-semibold tracking-tight">Run Context</h2>
+      </div>
 
+      <div className="mt-4 grid gap-3 border-y border-stone-900/12 py-3 text-sm dark:border-white/10 sm:grid-cols-3">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.18em] text-stone-500 dark:text-stone-400">
+            Mode
+          </div>
+          <div className="mt-1 font-medium">{modeLabelByValue[mode]}</div>
+        </div>
+        <div className="sm:border-l sm:border-stone-900/12 sm:pl-4 sm:dark:border-white/10">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-stone-500 dark:text-stone-400">
+            Rows
+          </div>
+          <div className="mt-1 font-medium">{rowCount}</div>
+        </div>
+        <div className="sm:border-l sm:border-stone-900/12 sm:pl-4 sm:dark:border-white/10">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-stone-500 dark:text-stone-400">
+            Download
+          </div>
+          <div className="mt-1 font-medium uppercase">{outputKind}</div>
+        </div>
+      </div>
+
+      <div className="mt-4">
         {sampleRowIndex === null ? (
-          <div className="rounded-2xl border border-dashed px-4 py-4 text-sm text-muted-foreground">
+          <div className="border-y border-dashed border-stone-900/12 py-4 text-sm text-muted-foreground dark:border-white/10">
             Select a valid row to inspect how placeholder values will be
             resolved.
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="text-sm font-medium">
+            <div className="text-sm font-medium tracking-tight">
               Row {sampleRowIndex + 1} snapshot
             </div>
             {fields.length > 0 ? (
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="border-y border-stone-900/12 dark:border-white/10">
                 {fields.map((field) => (
                   <div
                     key={field.placeholder}
-                    className="rounded-2xl border border-stone-900/10 bg-background/70 px-4 py-4 dark:border-white/10"
+                    className="grid gap-3 border-t border-stone-900/12 px-0 py-3 first:border-t-0 md:grid-cols-[minmax(0,220px)_minmax(0,1fr)] dark:border-white/10"
                   >
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
                       <div className="font-mono text-xs">{`{{${field.placeholder}}}`}</div>
                       <Badge
                         variant="outline"
-                        className={cn(toneClassNameByStatus[field.status])}
+                        className={cn(
+                          "h-6 rounded-none bg-transparent px-2 uppercase tracking-[0.18em]",
+                          toneClassNameByStatus[field.status],
+                        )}
                       >
                         {field.status === "matched" ? "Mapped" : "Missing"}
                       </Badge>
                     </div>
-                    <div className="mt-3 text-sm">
+                    <div className="text-sm text-muted-foreground md:text-foreground">
                       {field.status === "matched" ? (
                         field.value || (
                           <span className="text-muted-foreground">
@@ -107,15 +115,15 @@ const GenerateSamplePreview = ({
                 ))}
               </div>
             ) : (
-              <div className="rounded-2xl border border-dashed px-4 py-4 text-sm text-muted-foreground">
+              <div className="border-y border-dashed border-stone-900/12 py-4 text-sm text-muted-foreground dark:border-white/10">
                 This template has no placeholders, so every generated output
                 will be static.
               </div>
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 };
 
