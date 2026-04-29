@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { MoveDiagonal, ScanSearch } from "lucide-react";
 
 import TemplateCanvasContextMenu from "@/components/template/TemplateCanvasContextMenu";
-import TemplateText from "@/components/template/TemplateText";
+import TemplateCanvasElement from "@/components/template/TemplateCanvasElement";
 import {
   clampSelectionDelta,
   createSelectionRect,
@@ -539,7 +539,7 @@ const Canvas = () => {
               />
             ) : null}
             {renderedElements.map((element) => (
-              <TemplateText
+              <TemplateCanvasElement
                 key={element.id}
                 pageId={activePage.id}
                 element={element}

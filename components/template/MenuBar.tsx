@@ -1,6 +1,7 @@
 // components/template/MenuBar.tsx
 "use client";
 
+import type { ChangeEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -51,9 +52,12 @@ const MenuBar = () => {
     styleClipboard,
     deleteElements,
     duplicateElements,
-    addTextElement,
-    addPlaceholderElement,
-    movePage,
+  addTextElement,
+  addPlaceholderElement,
+  addBoxElement,
+  addLineElement,
+  addImageElement,
+  movePage,
     copyElementStyle,
     pasteElementStyle,
     moveElementLayer,
@@ -79,6 +83,25 @@ const MenuBar = () => {
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [templates, setTemplates] = useState<TemplateRecord[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const readImageFileAsDataUrl = (file: File) => {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          resolve(reader.result);
+          return;
+        }
+
+        reject(new Error("Image file did not produce a data URL"));
+      };
+      reader.onerror = () =>
+        reject(reader.error ?? new Error("Image read failed"));
+      reader.readAsDataURL(file);
+    });
+  };
 
   const fetchTemplates = async () => {
     const response = await fetch("/api/templates");
@@ -110,7 +133,7 @@ const MenuBar = () => {
     };
   }, [libraryOpen]);
 
-  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
     if (!file) {
@@ -125,6 +148,34 @@ const MenuBar = () => {
       toast.success("Template draft loaded");
     } catch {
       toast.error("Failed to load template draft");
+    }
+  };
+
+  const handleImageFileInsert = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an image file");
+      return;
+    }
+
+    try {
+      const dataUrl = await readImageFileAsDataUrl(file);
+      const nextId = addImageElement(activePage.id, {
+        src: dataUrl,
+        alt: file.name,
+      });
+      setSelectedElementId(nextId);
+      toast.success("Image embedded");
+    } catch {
+      toast.error("Failed to read image file");
     }
   };
 
@@ -426,7 +477,25 @@ const MenuBar = () => {
                 setSelectedElementId(addPlaceholderElement(activePage.id))
               }
             >
-              Placeholder
+              Placeholder Text
+            </MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem
+              onClick={() =>
+                setSelectedElementId(addBoxElement(activePage.id))
+              }
+            >
+              Box
+            </MenubarItem>
+            <MenubarItem
+              onClick={() =>
+                setSelectedElementId(addLineElement(activePage.id))
+              }
+            >
+              Line
+            </MenubarItem>
+            <MenubarItem onClick={() => imageInputRef.current?.click()}>
+              Image
             </MenubarItem>
             {dataSet.table.columns.length > 0 ? (
               <>
@@ -491,6 +560,13 @@ const MenuBar = () => {
           />
         </DialogContent>
       </Dialog>
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageFileInsert}
+      />
 
       <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
         <DialogContent>

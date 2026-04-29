@@ -1,20 +1,27 @@
 // components/template/Toolbox.tsx
 "use client";
 
-import { useState } from "react";
+import type { ChangeEvent } from "react";
+import { useRef, useState } from "react";
 import {
+  Box,
+  Braces,
   ChevronDown,
   ChevronUp,
   Copy,
   Eye,
   EyeOff,
+  Image as ImageIcon,
   Layers,
   Lock,
   LockOpen,
+  Minus,
   Search,
   SquareStack,
   Trash2,
+  Type,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import TemplateDataMappingPanel from "@/components/shared/TemplateDataMappingPanel";
 import PanelSection from "@/components/template/panels/PanelSection";
@@ -47,6 +54,23 @@ const getElementPreview = (content: string) => {
   return `${normalized.slice(0, 44)}...`;
 };
 
+const readImageFileAsDataUrl = (file: File) => {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Image file did not produce a data URL"));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("Image read failed"));
+    reader.readAsDataURL(file);
+  });
+};
+
 const Toolbox = ({ activeTab }: { activeTab: TemplateLeftPanelTab }) => {
   const {
     template,
@@ -56,6 +80,9 @@ const Toolbox = ({ activeTab }: { activeTab: TemplateLeftPanelTab }) => {
     movePage,
     addTextElement,
     addPlaceholderElement,
+    addBoxElement,
+    addLineElement,
+    addImageElement,
     renamePage,
     renameElement,
     toggleElementHidden,
@@ -85,12 +112,54 @@ const Toolbox = ({ activeTab }: { activeTab: TemplateLeftPanelTab }) => {
     null,
   );
   const [renamingValue, setRenamingValue] = useState("");
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const insertPlaceholderToken = (column: string) => {
     const token = `{{${column}}}`;
     const nextElementId = addPlaceholderElement(activePage.id, token);
     setActiveRightPanelTab("content");
     setSelectedElementId(nextElementId);
+  };
+
+  const insertBox = () => {
+    const nextElementId = addBoxElement(activePage.id);
+    setActiveRightPanelTab("style");
+    setSelectedElementId(nextElementId);
+  };
+
+  const insertLine = () => {
+    const nextElementId = addLineElement(activePage.id);
+    setActiveRightPanelTab("style");
+    setSelectedElementId(nextElementId);
+  };
+
+  const insertImage = (src?: string, alt?: string) => {
+    const nextElementId = addImageElement(activePage.id, { src, alt });
+    setActiveRightPanelTab("content");
+    setSelectedElementId(nextElementId);
+  };
+
+  const handleImageFileInsert = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an image file");
+      return;
+    }
+
+    try {
+      const dataUrl = await readImageFileAsDataUrl(file);
+      insertImage(dataUrl, file.name);
+    } catch {
+      toast.error("Failed to read image file");
+    }
   };
 
   const startRename = (elementId: string) => {
@@ -598,6 +667,7 @@ const Toolbox = ({ activeTab }: { activeTab: TemplateLeftPanelTab }) => {
                     setSelectedElementId(addTextElement(activePage.id));
                   }}
                 >
+                  <Type />
                   Add text
                 </Button>
                 <Button
@@ -609,7 +679,35 @@ const Toolbox = ({ activeTab }: { activeTab: TemplateLeftPanelTab }) => {
                     setSelectedElementId(addPlaceholderElement(activePage.id));
                   }}
                 >
-                  Add placeholder
+                  <Braces />
+                  Add placeholder text
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={insertBox}
+                >
+                  <Box />
+                  Add box
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={insertLine}
+                >
+                  <Minus />
+                  Add line
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => imageInputRef.current?.click()}
+                >
+                  <ImageIcon />
+                  Add image
                 </Button>
               </div>
             </div>
@@ -649,6 +747,7 @@ const Toolbox = ({ activeTab }: { activeTab: TemplateLeftPanelTab }) => {
               setSelectedElementId(nextElementId);
             }}
           >
+            <Type />
             Add text
           </Button>
           <Button
@@ -661,10 +760,37 @@ const Toolbox = ({ activeTab }: { activeTab: TemplateLeftPanelTab }) => {
               setSelectedElementId(nextElementId);
             }}
           >
-            Add placeholder
+            <Braces />
+            Add placeholder text
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={insertBox}
+          >
+            <Box />
+            Add box
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={insertLine}
+          >
+            <Minus />
+            Add line
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => imageInputRef.current?.click()}
+          >
+            <ImageIcon />
+            Add image
           </Button>
         </div>
-
         <div className="mt-6 space-y-2">
           <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
             Quick placeholder
@@ -694,11 +820,22 @@ const Toolbox = ({ activeTab }: { activeTab: TemplateLeftPanelTab }) => {
     </div>
   );
 
-  return activeTab === "pages"
-    ? renderPagesPanel()
-    : activeTab === "insert"
-      ? renderInsertPanel()
-      : renderStructurePanel();
+  return (
+    <>
+      {activeTab === "pages"
+        ? renderPagesPanel()
+        : activeTab === "insert"
+          ? renderInsertPanel()
+          : renderStructurePanel()}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageFileInsert}
+      />
+    </>
+  );
 };
 
 export default Toolbox;

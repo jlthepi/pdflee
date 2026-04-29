@@ -1,9 +1,24 @@
 // components/template/TemplateCanvasContextMenu.tsx
 "use client";
 
-import { Children, cloneElement, isValidElement, useState } from "react";
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useRef,
+  useState,
+} from "react";
+import type { ChangeEvent } from "react";
 import type { MouseEvent, ReactElement } from "react";
-import { Braces, ClipboardPaste, Plus, Type } from "lucide-react";
+import {
+  Box,
+  Braces,
+  ClipboardPaste,
+  Image as ImageIcon,
+  Minus,
+  Plus,
+  Type,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -26,6 +41,23 @@ type ContextPoint = {
   y: number;
 };
 
+const readImageFileAsDataUrl = (file: File) => {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Image file did not produce a data URL"));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("Image read failed"));
+    reader.readAsDataURL(file);
+  });
+};
+
 const TemplateCanvasContextMenu = ({
   pageId,
   children,
@@ -38,10 +70,16 @@ const TemplateCanvasContextMenu = ({
     styleClipboard,
     addTextElement,
     addPlaceholderElement,
+    addBoxElement,
+    addLineElement,
+    addImageElement,
     pasteElementStyle,
   } = useTemplateStore();
   const { selectedElementIds, setSelectedElementId } = useTemplateUiStore();
   const [contextPoint, setContextPoint] = useState<ContextPoint | null>(null);
+  const [pendingImagePoint, setPendingImagePoint] =
+    useState<ContextPoint | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const insertTextAtContext = () => {
     const nextId = addTextElement(pageId, contextPoint ?? undefined);
@@ -64,6 +102,52 @@ const TemplateCanvasContextMenu = ({
       contextPoint ?? undefined,
     );
     setSelectedElementId(nextId);
+  };
+
+  const insertBoxAtContext = () => {
+    const nextId = addBoxElement(pageId, contextPoint ?? undefined);
+    setSelectedElementId(nextId);
+  };
+
+  const insertLineAtContext = () => {
+    const nextId = addLineElement(pageId, contextPoint ?? undefined);
+    setSelectedElementId(nextId);
+  };
+
+  const requestImageAtContext = () => {
+    setPendingImagePoint(contextPoint);
+    window.setTimeout(() => imageInputRef.current?.click(), 0);
+  };
+
+  const handleImageFileInsert = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    const insertPoint = pendingImagePoint ?? contextPoint ?? undefined;
+    event.target.value = "";
+    setPendingImagePoint(null);
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an image file");
+      return;
+    }
+
+    try {
+      const dataUrl = await readImageFileAsDataUrl(file);
+      const nextId = addImageElement(pageId, {
+        src: dataUrl,
+        alt: file.name,
+        position: insertPoint,
+      });
+      setSelectedElementId(nextId);
+      toast.success("Image embedded");
+    } catch {
+      toast.error("Failed to read image file");
+    }
   };
 
   const onlyChild = Children.only(children);
@@ -94,61 +178,84 @@ const TemplateCanvasContextMenu = ({
   });
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>{enhancedChild}</ContextMenuTrigger>
-      <ContextMenuContent className="min-w-48">
-        <ContextMenuLabel>Canvas actions</ContextMenuLabel>
-        <ContextMenuItem onSelect={insertTextAtContext}>
-          <Type />
-          Add text here
-        </ContextMenuItem>
-        <ContextMenuItem onSelect={insertPlaceholderAtContext}>
-          <Braces />
-          Add placeholder here
-        </ContextMenuItem>
-        {dataSet.table.columns.length > 0 ? (
-          <>
-            <ContextMenuSeparator />
-            <ContextMenuSub>
-              <ContextMenuSubTrigger>
-                <Braces />
-                Insert dataset placeholder
-              </ContextMenuSubTrigger>
-              <ContextMenuSubContent>
-                {dataSet.table.columns.map((column) => (
-                  <ContextMenuItem
-                    key={column}
-                    onSelect={() => insertDatasetPlaceholderAtContext(column)}
-                  >
-                    {column}
-                  </ContextMenuItem>
-                ))}
-              </ContextMenuSubContent>
-            </ContextMenuSub>
-          </>
-        ) : null}
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          disabled={!styleClipboard || selectedElementIds.length === 0}
-          onSelect={() => {
-            pasteElementStyle(pageId, selectedElementIds);
-            toast.success("Style pasted");
-          }}
-        >
-          <ClipboardPaste />
-          Paste style
-        </ContextMenuItem>
-        <ContextMenuItem
-          onSelect={() => {
-            const nextId = addTextElement(pageId);
-            setSelectedElementId(nextId);
-          }}
-        >
-          <Plus />
-          Add text at default position
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>{enhancedChild}</ContextMenuTrigger>
+        <ContextMenuContent className="min-w-48">
+          <ContextMenuLabel>Canvas actions</ContextMenuLabel>
+          <ContextMenuItem onSelect={insertTextAtContext}>
+            <Type />
+            Add text here
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={insertPlaceholderAtContext}>
+            <Braces />
+            Add placeholder text here
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={insertBoxAtContext}>
+            <Box />
+            Add box here
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={insertLineAtContext}>
+            <Minus />
+            Add line here
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={requestImageAtContext}>
+            <ImageIcon />
+            Add image here
+          </ContextMenuItem>
+          {dataSet.table.columns.length > 0 ? (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuSub>
+                <ContextMenuSubTrigger>
+                  <Braces />
+                  Insert dataset placeholder
+                </ContextMenuSubTrigger>
+                <ContextMenuSubContent>
+                  {dataSet.table.columns.map((column) => (
+                    <ContextMenuItem
+                      key={column}
+                      onSelect={() =>
+                        insertDatasetPlaceholderAtContext(column)
+                      }
+                    >
+                      {column}
+                    </ContextMenuItem>
+                  ))}
+                </ContextMenuSubContent>
+              </ContextMenuSub>
+            </>
+          ) : null}
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            disabled={!styleClipboard || selectedElementIds.length === 0}
+            onSelect={() => {
+              pasteElementStyle(pageId, selectedElementIds);
+              toast.success("Style pasted");
+            }}
+          >
+            <ClipboardPaste />
+            Paste style
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => {
+              const nextId = addTextElement(pageId);
+              setSelectedElementId(nextId);
+            }}
+          >
+            <Plus />
+            Add text at default position
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageFileInsert}
+      />
+    </>
   );
 };
 

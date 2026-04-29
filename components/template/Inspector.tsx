@@ -2,6 +2,7 @@
 "use client";
 
 import type { ChangeEvent } from "react";
+import { useRef } from "react";
 import {
   AlignHorizontalJustifyCenter,
   AlignHorizontalJustifyEnd,
@@ -39,6 +40,7 @@ import {
   TEMPLATE_EDITOR_SAFE_AREA,
 } from "@/lib/domain/template-editor";
 import type { TemplateTextElement } from "@/types/domain";
+import type { TemplateElement } from "@/types/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,7 +53,25 @@ import {
   useTemplateUiStore,
 } from "@/stores/useTemplateUiStore";
 
+const readImageFileAsDataUrl = (file: File) => {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Image file did not produce a data URL"));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("Image read failed"));
+    reader.readAsDataURL(file);
+  });
+};
+
 const Inspector = ({ activeTab }: { activeTab: TemplateRightPanelTab }) => {
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const { dataSet } = useDataStore();
   const {
     template,
@@ -91,6 +111,12 @@ const Inspector = ({ activeTab }: { activeTab: TemplateRightPanelTab }) => {
     selectedElement && isTextTemplateElement(selectedElement)
       ? selectedElement
       : null;
+  const selectedBoxElement =
+    selectedElement?.type === "box" ? selectedElement : null;
+  const selectedLineElement =
+    selectedElement?.type === "line" ? selectedElement : null;
+  const selectedImageElement =
+    selectedElement?.type === "image" ? selectedElement : null;
   const longestPreviewContent = selectedTextElement
     ? buildLongestPlaceholderPreviewContent(
         selectedTextElement.content ?? "",
@@ -101,15 +127,46 @@ const Inspector = ({ activeTab }: { activeTab: TemplateRightPanelTab }) => {
   const hasHiddenSelection = selectedElements.some((element) => element.hidden);
   const primaryElement = selectedElements[0] ?? null;
 
-  const handleChange = (
-    field: keyof NonNullable<typeof selectedTextElement>,
-    value: string | number,
-  ) => {
-    if (!selectedTextElement || selectedTextElement.locked) {
+  const updateSelectedElement = (update: Partial<TemplateElement>) => {
+    if (!selectedElement || selectedElement.locked) {
       return;
     }
 
-    updateElement(activePage.id, selectedTextElement.id, { [field]: value });
+    updateElement(activePage.id, selectedElement.id, update);
+  };
+
+  const handleChange = <Key extends keyof TemplateElement>(
+    field: Key,
+    value: TemplateElement[Key],
+  ) => {
+    updateSelectedElement({ [field]: value });
+  };
+
+  const handleImageFileChange = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!selectedImageElement || selectedImageElement.locked || !file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an image file");
+      return;
+    }
+
+    try {
+      const dataUrl = await readImageFileAsDataUrl(file);
+      updateElement(activePage.id, selectedImageElement.id, {
+        src: dataUrl,
+        alt: selectedImageElement.alt || file.name,
+      });
+      toast.success("Image embedded");
+    } catch {
+      toast.error("Failed to read image file");
+    }
   };
 
   const nudgeSelected = (dx: number, dy: number) => {
@@ -264,6 +321,45 @@ const Inspector = ({ activeTab }: { activeTab: TemplateRightPanelTab }) => {
             </div>
           </div>
         </>
+      ) : selectedImageElement ? (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="imageSource">Image File</Label>
+            <Input
+              ref={imageInputRef}
+              id="imageSource"
+              type="file"
+              accept="image/*"
+              disabled={selectedImageElement.locked}
+              onChange={handleImageFileChange}
+            />
+            <p className="text-xs text-muted-foreground">
+              {selectedImageElement.src
+                ? "Image is embedded as a data URL in this template draft."
+                : "Choose an image file to embed it into this template draft."}
+            </p>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label htmlFor="imageAlt">Alt Text</Label>
+            <Input
+              id="imageAlt"
+              disabled={selectedImageElement.locked}
+              value={selectedImageElement.alt ?? ""}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                handleChange("alt", event.target.value)
+              }
+            />
+          </div>
+        </>
+      ) : selectedElement ? (
+        <div className="border-t border-dashed border-stone-900/12 pt-4 text-sm text-muted-foreground dark:border-white/10">
+          {selectedElement.type === "box"
+            ? "Boxes do not have text content. Use Style for fill and border controls."
+            : "Lines do not have text content. Use Style for stroke controls."}
+        </div>
       ) : selectedElementIds.length > 0 ? (
         <div className="border-t border-dashed border-stone-900/12 pt-4 text-sm text-muted-foreground dark:border-white/10">
           Select a text or placeholder element to edit its content here.
@@ -329,6 +425,7 @@ const Inspector = ({ activeTab }: { activeTab: TemplateRightPanelTab }) => {
           <Separator />
 
           <div className="space-y-2">
+            <div className="text-sm font-medium">Text Style</div>
             <Label htmlFor="fontFamily">Font Family</Label>
             <Input
               id="fontFamily"
@@ -368,7 +465,10 @@ const Inspector = ({ activeTab }: { activeTab: TemplateRightPanelTab }) => {
               disabled={selectedTextElement.locked}
               value={selectedTextElement.fontWeight ?? "normal"}
               onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                handleChange("fontWeight", event.target.value)
+                handleChange(
+                  "fontWeight",
+                  event.target.value as TemplateTextElement["fontWeight"],
+                )
               }
             >
               <option value="normal">Normal</option>
@@ -402,10 +502,212 @@ const Inspector = ({ activeTab }: { activeTab: TemplateRightPanelTab }) => {
             </div>
           </div>
         </>
+      ) : selectedBoxElement ? (
+        <>
+          <Separator />
+
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Box Style</div>
+            <Label>Fill Color</Label>
+            <div className="flex items-center gap-3">
+              <Input
+                type="color"
+                disabled={selectedBoxElement.locked}
+                value={selectedBoxElement.fillColor ?? "#f5f5f4"}
+                className="h-10 w-16 p-1"
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  handleChange("fillColor", event.target.value)
+                }
+              />
+              <Input
+                disabled={selectedBoxElement.locked}
+                value={selectedBoxElement.fillColor ?? "#f5f5f4"}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  handleChange("fillColor", event.target.value)
+                }
+              />
+            </div>
+            <Label>Border Color</Label>
+            <div className="flex items-center gap-3">
+              <Input
+                type="color"
+                disabled={selectedBoxElement.locked}
+                value={selectedBoxElement.borderColor ?? "#1c1917"}
+                className="h-10 w-16 p-1"
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  handleChange("borderColor", event.target.value)
+                }
+              />
+              <Input
+                disabled={selectedBoxElement.locked}
+                value={selectedBoxElement.borderColor ?? "#1c1917"}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  handleChange("borderColor", event.target.value)
+                }
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="boxBorderWidth">Border</Label>
+                <Input
+                  id="boxBorderWidth"
+                  type="number"
+                  min={0}
+                  disabled={selectedBoxElement.locked}
+                  value={selectedBoxElement.borderWidth ?? 1}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    handleChange("borderWidth", Number(event.target.value))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="boxRadius">Radius</Label>
+                <Input
+                  id="boxRadius"
+                  type="number"
+                  min={0}
+                  disabled={selectedBoxElement.locked}
+                  value={selectedBoxElement.borderRadius ?? 0}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    handleChange("borderRadius", Number(event.target.value))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="boxOpacity">Opacity</Label>
+                <Input
+                  id="boxOpacity"
+                  type="number"
+                  min={0}
+                  max={1}
+                  step="0.05"
+                  disabled={selectedBoxElement.locked}
+                  value={selectedBoxElement.opacity ?? 1}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    handleChange("opacity", Number(event.target.value))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      ) : selectedLineElement ? (
+        <>
+          <Separator />
+
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Line Style</div>
+            <Label>Stroke Color</Label>
+            <div className="flex items-center gap-3">
+              <Input
+                type="color"
+                disabled={selectedLineElement.locked}
+                value={selectedLineElement.strokeColor ?? "#1c1917"}
+                className="h-10 w-16 p-1"
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  handleChange("strokeColor", event.target.value)
+                }
+              />
+              <Input
+                disabled={selectedLineElement.locked}
+                value={selectedLineElement.strokeColor ?? "#1c1917"}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  handleChange("strokeColor", event.target.value)
+                }
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="lineStrokeWidth">Stroke</Label>
+                <Input
+                  id="lineStrokeWidth"
+                  type="number"
+                  min={1}
+                  disabled={selectedLineElement.locked}
+                  value={selectedLineElement.strokeWidth ?? 2}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    handleChange("strokeWidth", Number(event.target.value))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lineOrientation">Direction</Label>
+                <select
+                  id="lineOrientation"
+                  className="h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                  disabled={selectedLineElement.locked}
+                  value={selectedLineElement.orientation ?? "horizontal"}
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    handleChange(
+                      "orientation",
+                      event.target.value as TemplateElement["orientation"],
+                    )
+                  }
+                >
+                  <option value="horizontal">Horizontal</option>
+                  <option value="vertical">Vertical</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lineOpacity">Opacity</Label>
+                <Input
+                  id="lineOpacity"
+                  type="number"
+                  min={0}
+                  max={1}
+                  step="0.05"
+                  disabled={selectedLineElement.locked}
+                  value={selectedLineElement.opacity ?? 1}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    handleChange("opacity", Number(event.target.value))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      ) : selectedImageElement ? (
+        <>
+          <Separator />
+
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Image Style</div>
+            <Label htmlFor="imageObjectFit">Fit</Label>
+            <select
+              id="imageObjectFit"
+              className="h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+              disabled={selectedImageElement.locked}
+              value={selectedImageElement.objectFit ?? "contain"}
+              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                handleChange(
+                  "objectFit",
+                  event.target.value as TemplateElement["objectFit"],
+                )
+              }
+            >
+              <option value="contain">Contain</option>
+              <option value="cover">Cover</option>
+              <option value="fill">Fill</option>
+            </select>
+            <Label htmlFor="imageOpacity">Opacity</Label>
+            <Input
+              id="imageOpacity"
+              type="number"
+              min={0}
+              max={1}
+              step="0.05"
+              disabled={selectedImageElement.locked}
+              value={selectedImageElement.opacity ?? 1}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                handleChange("opacity", Number(event.target.value))
+              }
+            />
+          </div>
+        </>
       ) : (
         <div className="border-t border-dashed border-stone-900/12 pt-4 text-sm text-muted-foreground dark:border-white/10">
-          Select a text element to edit font controls. Presets and style paste
-          stay available for batch work.
+          Select an element to edit its type-specific style controls. Presets
+          and style paste stay available for batch work.
         </div>
       )}
     </div>
@@ -601,11 +903,31 @@ const Inspector = ({ activeTab }: { activeTab: TemplateRightPanelTab }) => {
                   value={selectedElement.name ?? ""}
                   disabled={selectedElement.locked}
                   onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                    updateElement(activePage.id, selectedElement.id, {
-                      name: event.target.value,
-                    })
+                    updateSelectedElement({ name: event.target.value })
                   }
                 />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="elementType">Type</Label>
+                    <Input
+                      id="elementType"
+                      value={selectedElement.type}
+                      disabled
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="elementLayer">Layer</Label>
+                    <Input
+                      id="elementLayer"
+                      value={
+                        activePage.elements.findIndex(
+                          (element) => element.id === selectedElement.id,
+                        ) + 1
+                      }
+                      disabled
+                    />
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     type="button"
@@ -697,53 +1019,61 @@ const Inspector = ({ activeTab }: { activeTab: TemplateRightPanelTab }) => {
             </div>
           </div>
 
-          {selectedTextElement ? (
+          {selectedElement ? (
             <>
               <Separator />
 
               <div className="space-y-2">
-                <Label>Position</Label>
+                <Label>Geometry</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    type="number"
-                    disabled={selectedTextElement.locked}
-                    value={selectedTextElement.x}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      handleChange("x", Number(event.target.value))
-                    }
-                  />
-                  <Input
-                    type="number"
-                    disabled={selectedTextElement.locked}
-                    value={selectedTextElement.y}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      handleChange("y", Number(event.target.value))
-                    }
-                  />
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <Label>Box Size</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    type="number"
-                    disabled={selectedTextElement.locked}
-                    value={selectedTextElement.width ?? 220}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      handleChange("width", Number(event.target.value))
-                    }
-                  />
-                  <Input
-                    type="number"
-                    disabled={selectedTextElement.locked}
-                    value={selectedTextElement.height ?? 44}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      handleChange("height", Number(event.target.value))
-                    }
-                  />
+                  <div className="space-y-2">
+                    <Label htmlFor="elementX">X</Label>
+                    <Input
+                      id="elementX"
+                      type="number"
+                      disabled={selectedElement.locked}
+                      value={selectedElement.x}
+                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                        handleChange("x", Number(event.target.value))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="elementY">Y</Label>
+                    <Input
+                      id="elementY"
+                      type="number"
+                      disabled={selectedElement.locked}
+                      value={selectedElement.y}
+                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                        handleChange("y", Number(event.target.value))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="elementWidth">W</Label>
+                    <Input
+                      id="elementWidth"
+                      type="number"
+                      disabled={selectedElement.locked}
+                      value={selectedElement.width ?? 220}
+                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                        handleChange("width", Number(event.target.value))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="elementHeight">H</Label>
+                    <Input
+                      id="elementHeight"
+                      type="number"
+                      disabled={selectedElement.locked}
+                      value={selectedElement.height ?? 44}
+                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                        handleChange("height", Number(event.target.value))
+                      }
+                    />
+                  </div>
                 </div>
               </div>
             </>

@@ -2,6 +2,14 @@
 "use client";
 
 import { useEffect } from "react";
+import {
+  FileText,
+  Layers,
+  Move,
+  Palette,
+  Plus,
+  Type,
+} from "lucide-react";
 
 import { Layout } from "@/components/layout/Layout";
 import Canvas from "@/components/template/Canvas";
@@ -229,7 +237,7 @@ const TemplatePage = () => {
   return (
     <Layout width="wide" mainScroll="locked">
       <div className="grid h-full min-h-0 gap-8 px-1 py-5 lg:grid-cols-[minmax(280px,320px)_minmax(0,1fr)_minmax(280px,320px)]">
-        <div className="relative min-h-0 overflow-hidden border-r pr-6">
+        <div className="relative min-h-0 overflow-visible border-r pr-6">
           <MenuBar />
           <Toolbox activeTab={activeLeftPanelTab} />
           <SidePanelTabs
@@ -237,25 +245,25 @@ const TemplatePage = () => {
             activeTab={activeLeftPanelTab}
             onChange={setActiveLeftPanelTab}
             tabs={[
-              { id: "structure", label: "Element" },
-              { id: "pages", label: "Pages" },
-              { id: "insert", label: "Insert" },
+              { id: "structure", label: "Element", icon: Layers },
+              { id: "pages", label: "Pages", icon: FileText },
+              { id: "insert", label: "Insert", icon: Plus },
             ]}
           />
         </div>
         <div className="min-h-0 overflow-y-auto">
           <Canvas />
         </div>
-        <div className="relative min-h-0 overflow-hidden border-l pl-6">
+        <div className="relative min-h-0 overflow-visible border-l pl-6">
           <Inspector activeTab={activeRightPanelTab} />
           <SidePanelTabs
             side="left"
             activeTab={activeRightPanelTab}
             onChange={setActiveRightPanelTab}
             tabs={[
-              { id: "content", label: "Content" },
-              { id: "style", label: "Style" },
-              { id: "arrange", label: "Arrange" },
+              { id: "content", label: "Content", icon: Type },
+              { id: "style", label: "Style", icon: Palette },
+              { id: "arrange", label: "Arrange", icon: Move },
             ]}
           />
         </div>
