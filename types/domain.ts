@@ -4,8 +4,16 @@ export type PageSize = {
   height: number;
 };
 
+export type TemplateDocumentSchemaVersion = 1;
+export type TemplateDocumentUnit = "px";
+export type TemplateCoordinateSystem = "top-left";
 export type TemplateElementType = "text" | "box" | "image" | "line";
-export type FontWeightToken = "normal" | "medium" | "semibold" | "bold";
+export type FontWeightToken =
+  | "normal"
+  | "medium"
+  | "semibold"
+  | "bold"
+  | (string & {});
 
 export type TemplateTextStyle = {
   fontSize: number;
@@ -20,19 +28,85 @@ export type TemplateStylePreset = TemplateTextStyle & {
   name: string;
 };
 
-export type TemplateElementBase = {
+export type TemplateElementBase<
+  Type extends TemplateElementType = TemplateElementType,
+> = {
   id: string;
-  type: TemplateElementType;
+  type: Type;
   name: string;
   x: number;
   y: number;
   width?: number;
   height?: number;
+  opacity?: number;
   locked?: boolean;
   hidden?: boolean;
 };
 
-export type TemplateElement = TemplateElementBase & {
+type TemplateTextElementFields = TemplateTextStyle & {
+  content: string;
+};
+
+type TemplateBoxElementFields = {
+  fillColor: string;
+  borderColor: string;
+  borderWidth: number;
+  borderRadius?: number;
+};
+
+type TemplateImageElementFields = {
+  src: string;
+  alt?: string;
+  objectFit?: "contain" | "cover" | "fill";
+};
+
+type TemplateLineElementFields = {
+  strokeColor: string;
+  strokeWidth: number;
+  orientation: "horizontal" | "vertical";
+};
+
+type NonTextElementFields = TemplateBoxElementFields &
+  TemplateImageElementFields &
+  TemplateLineElementFields;
+type NonBoxElementFields = TemplateTextElementFields &
+  TemplateImageElementFields &
+  TemplateLineElementFields;
+type NonImageElementFields = TemplateTextElementFields &
+  TemplateBoxElementFields &
+  TemplateLineElementFields;
+type NonLineElementFields = TemplateTextElementFields &
+  TemplateBoxElementFields &
+  TemplateImageElementFields;
+
+type CompatibleElementFields<Fields> = {
+  [Key in keyof Fields]?: Fields[Key];
+};
+
+export type TemplateTextElement = TemplateElementBase<"text"> &
+  TemplateTextElementFields &
+  CompatibleElementFields<NonTextElementFields>;
+
+export type TemplateBoxElement = TemplateElementBase<"box"> &
+  TemplateBoxElementFields &
+  CompatibleElementFields<NonBoxElementFields>;
+
+export type TemplateImageElement = TemplateElementBase<"image"> &
+  TemplateImageElementFields &
+  CompatibleElementFields<NonImageElementFields>;
+
+export type TemplateLineElement = TemplateElementBase<"line"> &
+  TemplateLineElementFields &
+  CompatibleElementFields<NonLineElementFields>;
+
+export type TemplateElement =
+  | TemplateTextElement
+  | TemplateBoxElement
+  | TemplateImageElement
+  | TemplateLineElement;
+
+export type TemplateElementInput = Partial<TemplateElementBase> & {
+  type?: TemplateElementType;
   content?: string;
   fontSize?: number;
   color?: string;
@@ -43,7 +117,6 @@ export type TemplateElement = TemplateElementBase & {
   borderColor?: string;
   borderWidth?: number;
   borderRadius?: number;
-  opacity?: number;
   src?: string;
   alt?: string;
   objectFit?: "contain" | "cover" | "fill";
@@ -51,11 +124,6 @@ export type TemplateElement = TemplateElementBase & {
   strokeWidth?: number;
   orientation?: "horizontal" | "vertical";
 };
-
-export type TemplateTextElement = TemplateElement;
-export type TemplateBoxElement = TemplateElement;
-export type TemplateImageElement = TemplateElement;
-export type TemplateLineElement = TemplateElement;
 
 export type TemplatePage = {
   id: string;
@@ -65,6 +133,9 @@ export type TemplatePage = {
 };
 
 export type TemplateDocument = {
+  schemaVersion?: TemplateDocumentSchemaVersion;
+  unit?: TemplateDocumentUnit;
+  coordinateSystem?: TemplateCoordinateSystem;
   pages: TemplatePage[];
   stylePresets?: TemplateStylePreset[];
 };

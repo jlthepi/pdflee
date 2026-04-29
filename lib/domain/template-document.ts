@@ -3,11 +3,18 @@ import {
   DEFAULT_TEMPLATE_LINE_HEIGHT,
   DEFAULT_TEMPLATE_STYLE_PRESETS,
 } from "@/lib/domain/template-text";
+import {
+  getDefaultElementName,
+  normalizeTemplateElement,
+} from "@/lib/domain/template-elements";
 import type {
   PageSize,
+  TemplateCoordinateSystem,
   TemplateDocument,
+  TemplateDocumentSchemaVersion,
+  TemplateDocumentUnit,
   TemplateElement,
-  TemplateElementType,
+  TemplateElementInput,
   TemplatePage,
   TemplateStylePreset,
   TemplateTextElement,
@@ -15,22 +22,23 @@ import type {
 
 type LegacyTemplateDocument = {
   page: PageSize;
-  elements: TemplateElement[];
+  elements: TemplateElementInput[];
+  stylePresets?: TemplateStylePreset[];
 };
 
-const getDefaultElementName = (type: TemplateElementType, index: number) => {
-  switch (type) {
-    case "box":
-      return `Box ${index + 1}`;
-    case "image":
-      return `Image ${index + 1}`;
-    case "line":
-      return `Line ${index + 1}`;
-    case "text":
-    default:
-      return `Text ${index + 1}`;
-  }
+type TemplatePageInput = Partial<Omit<TemplatePage, "elements">> & {
+  size: PageSize;
+  elements?: TemplateElementInput[];
 };
+
+type TemplateDocumentInput = Omit<TemplateDocument, "pages"> & {
+  pages?: TemplatePageInput[];
+};
+
+export const TEMPLATE_DOCUMENT_SCHEMA_VERSION = 1 satisfies TemplateDocumentSchemaVersion;
+export const TEMPLATE_DOCUMENT_UNIT = "px" satisfies TemplateDocumentUnit;
+export const TEMPLATE_DOCUMENT_COORDINATE_SYSTEM =
+  "top-left" satisfies TemplateCoordinateSystem;
 
 export const isTextTemplateElement = (
   element: TemplateElement,
@@ -48,32 +56,6 @@ const normalizeStylePreset = (
     name: preset.name || `Preset ${index + 1}`,
     lineHeight: preset.lineHeight ?? DEFAULT_TEMPLATE_LINE_HEIGHT,
   };
-};
-
-export const normalizeTemplateElement = (
-  element: TemplateElement,
-  index: number,
-): TemplateElement => {
-  const baseElement = {
-    ...element,
-    name: element.name || getDefaultElementName(element.type, index),
-    locked: element.locked ?? false,
-    hidden: element.hidden ?? false,
-  };
-
-  if (element.type === "text") {
-    return {
-      ...baseElement,
-      content: element.content ?? "",
-      fontSize: element.fontSize ?? 16,
-      color: element.color ?? "#000000",
-      fontFamily: element.fontFamily,
-      fontWeight: element.fontWeight ?? "normal",
-      lineHeight: element.lineHeight ?? DEFAULT_TEMPLATE_LINE_HEIGHT,
-    };
-  }
-
-  return baseElement;
 };
 
 export const createTemplatePage = ({
@@ -95,46 +77,76 @@ export const createTemplatePage = ({
   };
 };
 
-export const normalizeTemplateDocument = (
-  document: TemplateDocument | LegacyTemplateDocument,
+const normalizeTemplatePage = (
+  page: TemplatePageInput,
+  index: number,
+): TemplatePage => {
+  return {
+    id: page.id || crypto.randomUUID(),
+    name: page.name || `Page ${index + 1}`,
+    size: page.size,
+    elements: (page.elements ?? []).map((element, elementIndex) =>
+      normalizeTemplateElement(element, elementIndex),
+    ),
+  };
+};
+
+const createFallbackTemplatePage = () => {
+  return createTemplatePage({
+    name: "Page 1",
+    size: { width: 794, height: 1123 },
+  });
+};
+
+const isLegacyTemplateDocument = (
+  document: TemplateDocumentInput | LegacyTemplateDocument,
+): document is LegacyTemplateDocument => {
+  return "page" in document;
+};
+
+export const migrateTemplateDocument = (
+  document: TemplateDocumentInput | LegacyTemplateDocument,
 ): TemplateDocument => {
-  if ("pages" in document) {
+  if (isLegacyTemplateDocument(document)) {
     return {
-      pages:
-        document.pages.length > 0
-          ? document.pages.map((page, index) => ({
-              id: page.id,
-              name: page.name || `Page ${index + 1}`,
-              size: page.size,
-              elements: page.elements.map((element, elementIndex) =>
-                normalizeTemplateElement(element, elementIndex),
-              ),
-            }))
-          : [
-              createTemplatePage({
-                name: "Page 1",
-                size: { width: 794, height: 1123 },
-              }),
-            ],
+      schemaVersion: TEMPLATE_DOCUMENT_SCHEMA_VERSION,
+      unit: TEMPLATE_DOCUMENT_UNIT,
+      coordinateSystem: TEMPLATE_DOCUMENT_COORDINATE_SYSTEM,
+      pages: [
+        createTemplatePage({
+          name: "Page 1",
+          size: document.page,
+          elements: document.elements.map((element, index) =>
+            normalizeTemplateElement(element, index),
+          ),
+        }),
+      ],
       stylePresets:
         document.stylePresets?.map(normalizeStylePreset) ??
         DEFAULT_TEMPLATE_STYLE_PRESETS,
     };
   }
 
+  const pages =
+    document.pages && document.pages.length > 0
+      ? document.pages.map(normalizeTemplatePage)
+      : [createFallbackTemplatePage()];
+
   return {
-    pages: [
-      createTemplatePage({
-        name: "Page 1",
-        size: document.page,
-        elements: document.elements.map((element, index) =>
-          normalizeTemplateElement(element, index),
-        ),
-      }),
-    ],
-    stylePresets: DEFAULT_TEMPLATE_STYLE_PRESETS,
+    schemaVersion: TEMPLATE_DOCUMENT_SCHEMA_VERSION,
+    unit: document.unit ?? TEMPLATE_DOCUMENT_UNIT,
+    coordinateSystem:
+      document.coordinateSystem ?? TEMPLATE_DOCUMENT_COORDINATE_SYSTEM,
+    pages,
+    stylePresets:
+      document.stylePresets?.map(normalizeStylePreset) ??
+      DEFAULT_TEMPLATE_STYLE_PRESETS,
   };
 };
+
+export { normalizeTemplateElement };
+
+export const normalizeTemplateDocument = migrateTemplateDocument;
 
 export const getTemplatePage = (
   document: TemplateDocument,

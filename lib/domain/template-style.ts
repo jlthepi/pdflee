@@ -1,6 +1,8 @@
 // lib/domain/template-style.ts
+import { isTextTemplateElement } from "@/lib/domain/template-document";
 import type {
   TemplateElement,
+  TemplateElementBase,
   TemplateStylePreset,
   TemplateTextStyle,
 } from "@/types/domain";
@@ -11,11 +13,18 @@ export const TEMPLATE_DUPLICATE_OFFSET = {
 } as const;
 
 export type TemplateStylePatch = Partial<TemplateTextStyle> &
-  Pick<TemplateElement, "width" | "height">;
+  Pick<TemplateElementBase, "width" | "height">;
 
 export const pickTemplateElementStyle = (
   element: TemplateElement,
 ): TemplateStylePatch => {
+  if (!isTextTemplateElement(element)) {
+    return {
+      width: element.width,
+      height: element.height,
+    };
+  }
+
   return {
     width: element.width,
     height: element.height,

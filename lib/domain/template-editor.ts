@@ -1,5 +1,10 @@
 // lib/domain/template-editor.ts
-import type { PageSize, TemplateElement } from "@/types/domain";
+import { normalizeTemplateElement } from "@/lib/domain/template-elements";
+import type {
+  PageSize,
+  TemplateElement,
+  TemplateElementInput,
+} from "@/types/domain";
 
 export const TEMPLATE_EDITOR_GRID_SIZE = 1;
 export const TEMPLATE_EDITOR_SNAP_THRESHOLD = 6;
@@ -207,25 +212,26 @@ export const normalizeElementForPage = ({
   element,
   pageSize,
 }: {
-  element: TemplateElement;
+  element: TemplateElementInput;
   pageSize: PageSize;
-}) => {
+}): TemplateElement => {
+  const normalizedElement = normalizeTemplateElement(element);
   const nextSize = clampElementSize({
-    width: element.width ?? 220,
-    height: element.height ?? 44,
-    x: element.x,
-    y: element.y,
+    width: normalizedElement.width ?? 220,
+    height: normalizedElement.height ?? 44,
+    x: normalizedElement.x,
+    y: normalizedElement.y,
     pageSize,
   });
   const nextPosition = clampElementPosition({
-    x: element.x,
-    y: element.y,
+    x: normalizedElement.x,
+    y: normalizedElement.y,
     elementBox: nextSize,
     pageSize,
   });
 
   return {
-    ...element,
+    ...normalizedElement,
     x: nextPosition.x,
     y: nextPosition.y,
     width: nextSize.width,
