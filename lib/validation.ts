@@ -4,10 +4,10 @@ import { z } from "zod";
 import { normalizeTemplateDocument } from "@/lib/domain/template-document";
 
 const templateElementBaseSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  x: z.number(),
-  y: z.number(),
+  id: z.string().min(1).optional(),
+  name: z.string().min(1).optional(),
+  x: z.number().optional(),
+  y: z.number().optional(),
   width: z.number().min(48).optional(),
   height: z.number().min(24).optional(),
   locked: z.boolean().optional(),
@@ -25,22 +25,22 @@ const templateTextStyleSchema = z.object({
 const templateTextElementSchema = templateElementBaseSchema
   .extend({
     type: z.literal("text"),
-    content: z.string(),
+    content: z.string().optional(),
   })
-  .merge(templateTextStyleSchema);
+  .merge(templateTextStyleSchema.partial());
 
 const templateBoxElementSchema = templateElementBaseSchema.extend({
   type: z.literal("box"),
-  fillColor: z.string().min(1),
-  borderColor: z.string().min(1),
-  borderWidth: z.number().min(0),
+  fillColor: z.string().min(1).optional(),
+  borderColor: z.string().min(1).optional(),
+  borderWidth: z.number().min(0).optional(),
   borderRadius: z.number().min(0).optional(),
   opacity: z.number().min(0).max(1).optional(),
 });
 
 const templateImageElementSchema = templateElementBaseSchema.extend({
   type: z.literal("image"),
-  src: z.string().min(1),
+  src: z.string().optional(),
   alt: z.string().optional(),
   objectFit: z.enum(["contain", "cover", "fill"]).optional(),
   opacity: z.number().min(0).max(1).optional(),
@@ -48,9 +48,9 @@ const templateImageElementSchema = templateElementBaseSchema.extend({
 
 const templateLineElementSchema = templateElementBaseSchema.extend({
   type: z.literal("line"),
-  strokeColor: z.string().min(1),
-  strokeWidth: z.number().min(1),
-  orientation: z.enum(["horizontal", "vertical"]),
+  strokeColor: z.string().min(1).optional(),
+  strokeWidth: z.number().min(1).optional(),
+  orientation: z.enum(["horizontal", "vertical"]).optional(),
 });
 
 export const templateElementSchema = z.discriminatedUnion("type", [
@@ -76,8 +76,8 @@ const pageSizeSchema = z.object({
 });
 
 const templatePageSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
+  id: z.string().min(1).optional(),
+  name: z.string().min(1).optional(),
   size: pageSizeSchema,
   elements: z.array(templateElementSchema),
 });
@@ -85,12 +85,16 @@ const templatePageSchema = z.object({
 const templateDocumentSchema = z
   .union([
     z.object({
+      schemaVersion: z.literal(1).optional(),
+      unit: z.literal("px").optional(),
+      coordinateSystem: z.literal("top-left").optional(),
       pages: z.array(templatePageSchema).min(1),
       stylePresets: z.array(templateStylePresetSchema).optional(),
     }),
     z.object({
       page: pageSizeSchema,
       elements: z.array(templateElementSchema),
+      stylePresets: z.array(templateStylePresetSchema).optional(),
     }),
   ])
   .transform((document) => normalizeTemplateDocument(document));
